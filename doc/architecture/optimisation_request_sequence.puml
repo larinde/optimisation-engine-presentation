@@ -1,0 +1,98 @@
+@startuml
+
+scale 750 width
+hide footbox
+title Optimisation Request Initialisation \n\n\n
+
+skinparam sequence {
+ArrowColor Black
+ActorBorderColor Black
+LifeLineBorderColor Black
+LifeLineBackgroundColor LightSteelBlue
+ParticipantBorderColor Black
+ParticipantBackgroundColor LightSteelBlue
+ActorBackgroundColor aqua
+ActorFontColor Black
+}
+
+
+actor User as user
+
+participant uiComponent <<Frontend>>
+participant BFF <<BFF Adapter>>
+participant workflowEngine <<Workflow Engine>>
+participant dataRepository <<Data Repository>>
+participant ComputeWorkerVer100 <<Compute Worker Node>>
+
+box "Frontend" #Azure
+    participant uiComponent
+end box
+
+box "Facade" #Azure
+    participant BFF
+end box
+
+
+box "Workflow Engine" #LightBlue
+    participant workflowEngine
+    participant dataRepository
+end box
+
+box "Compute Cluster" #LightGray
+    participant ComputeWorkerVer100
+end box
+
+== User Submits Optimisation Request ==
+user -> uiComponent : submit()
+uiComponent --> BFF : POST: /optimisations \n (Submit machine parameters)
+
+activate BFF
+BFF -> workflowEngine : Publish message\nto "optimisation-request-queue" \n (Initialise optimisation process)
+activate workflowEngine
+
+note right of BFF
+  Asynchronous send.
+  API returns 202 immediately
+  without waiting for processing
+end note
+BFF --> uiComponent: 202 Accepted\nLocation: /optimisations/{requestId}
+deactivate BFF
+workflowEngine --> dataRepository : persistMachineParameters()
+activate dataRepository
+dataRepository --> workflowEngine
+deactivate dataRepository
+
+
+workflowEngine --> ComputeWorkerVer100 : Publish message\nto "optimisation-compute-request-queue" \n ( process)
+activate ComputeWorkerVer100
+'ComputeWorkerVer100 --> workflowEngine
+deactivate ComputeWorkerVer100
+
+deactivate workflowEngine
+'workflowEngine --> BFF
+
+
+== Listener Consumes Computation Result ==
+ComputeWorkerVer100 -> workflowEngine: Event Notfication\n "optimisation-compute-response-queue"
+activate workflowEngine
+workflowEngine --> dataRepository: persistComputationResult()
+activate dataRepository
+dataRepository --> workflowEngine
+deactivate dataRepository
+deactivate workflowEngine
+
+== User Polls Platform for Result ==
+uiComponent -> BFF: GET /optimisations/{requestId}
+activate BFF
+
+workflowEngine -> BFF: Event Notfication\n "optimisation-request-response-queue"
+
+BFF --> uiComponent: 200 OK\nOptimisationResponse
+deactivate workflowEngine
+
+deactivate BFF
+deactivate uiComponent
+
+
+
+@enduml

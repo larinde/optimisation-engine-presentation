@@ -1,0 +1,128 @@
+openapi: 3.0.0
+info:
+  title: Injection Molding Optimisation API
+  description: 
+    API for managing machine parameter optimisation
+  version: 1.0.0
+
+servers:
+  - url: https://localhost:7070/v1
+    description: Dev. server
+
+paths:
+  /optimisations:
+    post:
+      summary: Start a new optimisation request
+      description: |
+        Submits material and environmental data to trigger the optimisation engine. 
+        Returns a location header to track the status of the calculation.
+      tags:
+        - Optimisation
+      parameters:
+        - name: X-Tenant-ID
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimisationRequest'
+      responses:
+        '202':
+          description: Request accepted
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/optimisations/123e4567-e89b-12d3-a456-426614174000"
+        '400':
+          description: Invalid input parameters.
+
+  /optimisations/{requestId}:
+    get:
+      summary: 
+        Get optimisation
+      tags:
+        - Optimisation
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The current status or final result of the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimisationResponse'
+
+components:
+  schemas:
+    OptimisationRequest:
+      type: object
+      required:
+        - machineId
+        - materialType
+        - optimisationGoals
+      properties:
+        machineId:
+          type: string
+          format: uuid
+        materialType:
+          type: string
+          example: "ABS"
+        materialProperties:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MaterialAttribute"
+        ambientTemperature:
+          type: number
+          format: float
+          example: 22.5
+        optimisationGoals:
+          type: array
+          items:
+            type: string
+            enum: [MAX_CYCLE_SPEED, MIN_SCRAP_RATE, MIN_WARPAGE]
+    OptimisationResponse:
+      type: object
+      required:
+        - requestId
+        - status
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        algorithmVersion:
+          type: string
+          example: "2.0.1"
+        recommendation:
+          $ref: '#/components/schemas/MachineConfiguration'
+        error:
+          type: string
+    MachineConfiguration:
+      type: object
+      properties:
+        pressureBar:
+          type: number
+        temperatureProfile:
+          type: object
+        injectionSpeed:
+          type: number
+    MaterialAttribute:
+      type: object
+      properties:
+        name:
+          type: string   
+        value:
+          type: string     

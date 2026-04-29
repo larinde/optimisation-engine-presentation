@@ -1,0 +1,63 @@
+@startuml
+
+skinparam componentStyle uml2
+
+skinparam component {
+    FontColor          Black
+    AttributeFontColor Black
+    FontSize           17
+    AttributeFontSize  15
+    AttributeFontname  Droid Sans Mono
+    BackgroundColor    LightSteelBlue
+    BorderColor        Black
+    ArrowColor         Black
+}
+
+skinparam sequence {
+ArrowColor Black
+ActorBorderColor Black
+LifeLineBorderColor Black
+LifeLineBackgroundColor LightSteelBlue
+ParticipantBorderColor Black
+ParticipantBackgroundColor LightSteelBlue
+ActorBackgroundColor aqua
+ActorFontColor Black
+}
+
+skinparam database {
+	BackgroundColor DodgerBlue
+	BorderColor Black
+}
+
+title Optimisation as a Service Platform Component Architecture  \n\n\n
+
+node "UI" {
+  [ui-component]
+}
+
+node "Computation Service" {
+  [compute-version-100]
+}
+
+node "Computation Service2" {
+  [compute-version-200]
+  [compute-version-210]
+}
+
+
+node "Workflow Engine" {
+  [workflow-engine] -- [compute-version-100] : MESSAGING
+  [workflow-engine] -- [compute-version-200] : MESSAGING
+  [workflow-engine] -- [compute-version-210] : MESSAGING
+  [workflow-engine] -down- [audit-service] : MESSAGING
+  [workflow-engine] -down- [data-repository] : MESSAGING
+}
+
+
+node "BFF" {
+  [ui-component] -right- [bff-adapter] : REST-HTTP
+  [bff-adapter] -- [workflow-engine]  : MESSAGING
+}
+
+
+@enduml
